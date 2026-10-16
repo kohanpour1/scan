@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.graphics.Paint
@@ -105,18 +104,8 @@ class InventoryDb(context: android.content.Context) :
             if (it.moveToFirst()) it.getInt(0) else 0
         }
 
-    fun outCount(productId: Int): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM serials WHERE product_id=? AND status='OUT'", arrayOf(productId.toString())).use {
-            if (it.moveToFirst()) it.getInt(0) else 0
-        }
-
     fun totalCount(): Int =
         readableDatabase.rawQuery("SELECT COUNT(*) FROM serials WHERE status='IN'", null).use {
-            if (it.moveToFirst()) it.getInt(0) else 0
-        }
-
-    fun totalOutCount(): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM serials WHERE status='OUT'", null).use {
             if (it.moveToFirst()) it.getInt(0) else 0
         }
 
@@ -129,8 +118,6 @@ class InventoryDb(context: android.content.Context) :
     }
 
     fun productSummary(): List<Pair<String, Int>> = products().map { it.name to stockCount(it.id) }
-
-    fun productOutSummary(): List<Pair<String, Int>> = products().map { it.name to outCount(it.id) }
 
     fun movementRows(): List<Array<String>> {
         val rows = mutableListOf<Array<String>>()
@@ -150,11 +137,9 @@ class MainActivity : Activity() {
     private lateinit var feedbackLight: TextView
     private var toneGenerator: ToneGenerator? = null
     private var products: List<Product> = emptyList()
-    private var lastIncoming: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         db = InventoryDb(this)
         toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 90)
         buildUi()
@@ -164,139 +149,107 @@ class MainActivity : Activity() {
     private fun buildUi() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(12, 6, 12, 8)
+            setPadding(14, 8, 14, 10)
             layoutParams = ViewGroup.LayoutParams(-1, -1)
             layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
-            setBackgroundColor(0xFFF4F6F2.toInt())
+            setBackgroundColor(0xFFF6F7F4.toInt())
         }
-
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(4, 4, 4, 4)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(4, 8, 4, 8)
+            layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
         }
         val logo = ImageView(this).apply {
             setImageResource(R.drawable.scanner_logo)
             contentDescription = "لوگوی اپلیکیشن اسکنر"
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        header.addView(logo, LinearLayout.LayoutParams(56, 56).apply { marginEnd = 10 })
+        content.addView(logo, LinearLayout.LayoutParams(76, 76).apply { gravity = Gravity.CENTER; bottomMargin = 4 })
         val title = TextView(this).apply {
             text = "اسکنر | مدیریت انبار"
-            textSize = 20f
-            setTextColor(0xFF2A4A32.toInt())
-            gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            textSize = 24f
+            setTextColor(0xFF34513A.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 14)
         }
-        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(header, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 6 })
-
+        content.addView(title)
         countText = TextView(this).apply {
-            textSize = 16f
+            textSize = 18f
             gravity = Gravity.CENTER
-            setTextColor(0xFF1A2E20.toInt())
-            setPadding(10, 10, 10, 10)
-            setBackgroundColor(0xFFDCE8D4.toInt())
+            setTextColor(0xFF1D3324.toInt())
+            setPadding(8, 12, 8, 12)
+            setBackgroundColor(0xFFE4EBDD.toInt())
         }
-        root.addView(countText, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8 })
+        content.addView(countText, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12 })
+        productSpinner = Spinner(this)
+        productSpinner.minimumHeight = 204
+        productSpinner.setPadding(18, 24, 18, 24)
+        content.addView(productSpinner, LinearLayout.LayoutParams(-1, 204).apply { bottomMargin = 12 })
+        modeSpinner = Spinner(this)
+        modeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, listOf("ورود به انبار", "خروج از انبار")).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        modeSpinner.minimumHeight = 80
+        modeSpinner.setPadding(16, 10, 16, 10)
+        content.addView(modeSpinner, LinearLayout.LayoutParams(-1, 80).apply { bottomMargin = 14 })
 
-        val productLabel = TextView(this).apply {
-            text = "نوع محصول"
-            textSize = 13f
-            setTextColor(0xFF555555.toInt())
-            setPadding(4, 0, 4, 2)
-        }
-        root.addView(productLabel)
-        productSpinner = Spinner(this).apply {
-            minimumHeight = 96
-            setPadding(14, 12, 14, 12)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-        }
-        root.addView(productSpinner, LinearLayout.LayoutParams(-1, 96).apply { bottomMargin = 6 })
-
-        val modeLabel = TextView(this).apply {
-            text = "نوع عملیات"
-            textSize = 13f
-            setTextColor(0xFF555555.toInt())
-            setPadding(4, 0, 4, 2)
-        }
-        root.addView(modeLabel)
-        modeSpinner = Spinner(this).apply {
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, listOf("ورود به انبار", "خروج از انبار")).also {
-                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            minimumHeight = 72
-            setPadding(14, 10, 14, 10)
-            setBackgroundColor(0xFFFFFFFF.toInt())
-        }
-        root.addView(modeSpinner, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 8 })
-
-        addButton(root, "▦  اسکن بارکد با دوربین", 0xFF0D6B63.toInt(), 92) { startScan() }
-
-        feedbackLight = TextView(this).apply {
-            text = "آماده اسکن"
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(8, 8, 8, 8)
-            setBackgroundColor(0xFF546E7A.toInt())
-        }
-        root.addView(feedbackLight, LinearLayout.LayoutParams(-1, 40).apply { topMargin = 4; bottomMargin = 8 })
-
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            clipToPadding = false
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(2, 4, 2, 8)
-            layoutDirection = ViewGroup.LAYOUT_DIRECTION_RTL
-        }
-
-        addButton(content, "＋ ثبت محصول", 0xFF4A6B3A.toInt(), 56) { addProductDialog() }
-        addButton(content, "− حذف محصول", 0xFF9A3B34.toInt(), 56) { deleteProductDialog() }
-        addButton(content, "＋ ثبت دستی سریال", 0xFF3F5A72.toInt(), 56) { manualEntryDialog() }
-        addButton(content, "⇩ خروجی Excel (XLSX)", 0xFF556B40.toInt(), 56) { exportXlsx() }
-        addButton(content, "▤ خروجی PDF", 0xFF8A5F30.toInt(), 56) { exportPdf() }
-        addButton(content, "▦ جدول موجودی و گردش کالا", 0xFF2C5568.toInt(), 56) { showInventoryTable() }
+        addButton(content, "＋ ثبت محصول", 0xFF526B3C.toInt()) { addProductDialog() }
+        addButton(content, "− حذف محصول", 0xFF9B3D36.toInt()) { deleteProductDialog() }
+        addButton(content, "＋ ثبت دستی سریال", 0xFF47627B.toInt()) { manualEntryDialog() }
+        addButton(content, "⇩ خروجی Excel (XLSX)", 0xFF5C6B45.toInt()) { exportXlsx() }
+        addButton(content, "▤ خروجی PDF", 0xFF8A6533.toInt()) { exportPdf() }
+        addButton(content, "▦ جدول موجودی و گردش کالا", 0xFF315C73.toInt()) { showInventoryTable() }
 
         detailText = TextView(this).apply {
-            textSize = 13f
+            textSize = 14f
             setTextColor(0xFF333333.toInt())
-            setPadding(6, 10, 6, 6)
+            setPadding(4, 12, 4, 4)
             gravity = Gravity.RIGHT
         }
-        content.addView(detailText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6 })
-
+        content.addView(detailText, LinearLayout.LayoutParams(-1, 0, 1f))
         val note = TextView(this).apply {
-            text = "اطلاعات فقط روی همین گوشی ذخیره می‌شود.\nپس از اسکن، محصول و نوع عملیات حفظ می‌شود تا زمانی که خودتان تغییر دهید."
-            textSize = 11f
+            text = "اطلاعات فقط روی همین گوشی ذخیره می‌شود."
+            textSize = 12f
             gravity = Gravity.CENTER
             setTextColor(0xFF777777.toInt())
-            setPadding(0, 8, 0, 4)
+            setPadding(0, 8, 0, 0)
         }
         content.addView(note)
-
+        feedbackLight = TextView(this).apply {
+            text = "آماده اسکن"
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(8, 5, 8, 5)
+            setBackgroundColor(0xFF607D8B.toInt())
+        }
+        content.addView(feedbackLight, LinearLayout.LayoutParams(-1, 38).apply { topMargin = 6; bottomMargin = 6 })
+        val scroll = ScrollView(this).apply {
+            isFillViewport = false
+            clipToPadding = false
+            overScrollMode = ScrollView.OVER_SCROLL_IF_CONTENT_SCROLLS
+        }
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        addButton(root, "▦\nاسکن بارکد با دوربین", 0xFF176B63.toInt(), 204) { startScan() }
         setContentView(root)
     }
 
-    private fun addButton(root: LinearLayout, label: String, color: Int, height: Int = 56, action: () -> Unit) {
+    private fun addButton(root: LinearLayout, label: String, color: Int, height: Int = 68, action: () -> Unit) {
         val b = Button(this).apply {
             text = label
-            textSize = if (height >= 88) 18f else 15f
+            textSize = if (height >= 150) 23f else 18f
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
             isAllCaps = false
             minHeight = height
             minimumHeight = height
             gravity = Gravity.CENTER
-            setPadding(10, 6, 10, 6)
+            setPadding(12, 8, 12, 8)
             setTextColor(0xFFFFFFFF.toInt())
             setBackgroundTintList(android.content.res.ColorStateList.valueOf(color))
             setOnClickListener { action() }
         }
-        root.addView(b, LinearLayout.LayoutParams(-1, height).apply { bottomMargin = 6 })
+        root.addView(b, LinearLayout.LayoutParams(-1, height).apply { bottomMargin = if (height >= 150) 0 else 10 })
     }
 
     private fun showInventoryTable() {
@@ -391,20 +344,18 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle(if (isIncoming()) "ثبت دستی ورود" else "ثبت دستی خروج")
             .setView(input).setNegativeButton("لغو", null)
             .setPositiveButton("ثبت") { _, _ ->
-                lastIncoming = isIncoming()
-                showRecordFeedback(db.record(product.id, input.text.toString(), isIncoming()), isIncoming())
+                showRecordFeedback(db.record(product.id, input.text.toString(), isIncoming()))
                 refresh()
             }.show()
     }
 
     private fun startScan() {
         if (selectedProduct() == null) return
-        lastIncoming = isIncoming()
         val integrator = IntentIntegrator(this)
         integrator.setCaptureActivity(CaptureActivity::class.java)
         integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES)
-        integrator.setPrompt(if (isIncoming()) "بارکد کالا را اسکن کنید - ورود به انبار" else "بارکد کالا را اسکن کنید - خروج از انبار")
-        integrator.setBeepEnabled(false)
+        integrator.setPrompt(if (isIncoming()) "بارکد کالا را اسکن کنید - ورود" else "بارکد کالا را اسکن کنید - خروج")
+        integrator.setBeepEnabled(true)
         integrator.setOrientationLocked(false)
         integrator.setBarcodeImageEnabled(false)
         try {
@@ -419,11 +370,7 @@ class MainActivity : Activity() {
         if (result != null) {
             if (result.contents != null) {
                 val p = selectedProduct()
-                if (p != null) {
-                    val incoming = isIncoming()
-                    lastIncoming = incoming
-                    showRecordFeedback(db.record(p.id, result.contents, incoming), incoming)
-                }
+                if (p != null) showRecordFeedback(db.record(p.id, result.contents, isIncoming()))
                 refresh()
             }
             return
@@ -431,62 +378,41 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
-    private fun playFeedbackSound(success: Boolean, incoming: Boolean) {
-        val tg = toneGenerator ?: return
-        if (!success) {
-            tg.startTone(ToneGenerator.TONE_PROP_NACK, 140)
-            Handler(Looper.getMainLooper()).postDelayed({
-                tg.startTone(ToneGenerator.TONE_PROP_NACK, 140)
-            }, 180)
-        } else if (incoming) {
-            tg.startTone(ToneGenerator.TONE_PROP_ACK, 220)
-        } else {
-            tg.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 280)
-        }
-    }
-
-    private fun showRecordFeedback(message: String, incoming: Boolean = lastIncoming) {
+    private fun showRecordFeedback(message: String) {
         val success = message == "ورود کالا ثبت شد." || message == "خروج کالا ثبت شد."
         feedbackLight.text = if (success) "✓ ثبت موفق" else "✕ خطا: $message"
         feedbackLight.setBackgroundColor(if (success) 0xFF2E7D32.toInt() else 0xFFC62828.toInt())
-        playFeedbackSound(success, incoming)
+        toneGenerator?.startTone(if (success) ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_NACK, 250)
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         Handler(Looper.getMainLooper()).postDelayed({
             if (::feedbackLight.isInitialized) {
                 feedbackLight.text = "آماده اسکن"
-                feedbackLight.setBackgroundColor(0xFF546E7A.toInt())
+                feedbackLight.setBackgroundColor(0xFF607D8B.toInt())
             }
-        }, 1200)
+        }, 1000)
     }
 
     private fun refresh() {
-        val prevProductPos = if (::productSpinner.isInitialized) productSpinner.selectedItemPosition else 0
-        val prevModePos = if (::modeSpinner.isInitialized) modeSpinner.selectedItemPosition else 0
-
         products = db.products()
         productSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
             if (products.isEmpty()) listOf("ابتدا محصول اضافه کنید") else products.map { it.name }).also {
             it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
-        if (products.isNotEmpty() && prevProductPos in products.indices) {
-            productSpinner.setSelection(prevProductPos)
-        }
-        modeSpinner.setSelection(prevModePos.coerceIn(0, 1))
-
-        countText.text = "موجودی کل: ${db.totalCount()}  |  خارج‌شده: ${db.totalOutCount()}"
+        productSpinner.minimumHeight = 204
+        productSpinner.setPadding(16, 20, 16, 20)
+        productSpinner.layoutParams = LinearLayout.LayoutParams(-1, 204).apply { bottomMargin = 8 }
+        countText.text = "موجودی کل: ${db.totalCount()} سریال"
         detailText.text = if (products.isEmpty()) {
             "برای شروع، نوع محصول را اضافه کنید.\n\nهر سریال فقط یک‌بار در موجودی ثبت می‌شود و ورود و خروج آن در تاریخچه ذخیره می‌شود."
         } else {
-            products.joinToString("\n") {
-                "• ${it.name}: ${db.stockCount(it.id)} موجود  /  ${db.outCount(it.id)} خارج‌شده"
-            } + "\n\nتعداد کل سریال‌های ثبت‌شده: ${db.serialRows().size}"
+            products.joinToString("\n") { "• ${it.name}: ${db.stockCount(it.id)} عدد موجود" } +
+                "\n\nتعداد سریال‌های ثبت‌شده: ${db.serialRows().size}\n\nوضعیت هر سریال در خروجی‌ها درج می‌شود."
         }
     }
 
     private fun exportXlsx() {
         val rows = db.serialRows()
         val summary = db.productSummary()
-        val outSummary = db.productOutSummary()
         val name = "Scanner_inventory_${System.currentTimeMillis()}.xlsx"
         try {
             val values = ContentValues().apply {
@@ -527,10 +453,6 @@ class MainActivity : Activity() {
                     table.add(listOf("", "", "", "", ""))
                     table.add(listOf("خلاصه موجودی", "تعداد موجود"))
                     summary.forEach { table.add(listOf(it.first, it.second.toString())) }
-                    table.add(listOf("", "", "", "", ""))
-                    table.add(listOf("خلاصه خروجی", "تعداد خارج‌شده"))
-                    outSummary.forEach { table.add(listOf(it.first, it.second.toString())) }
-                    table.add(listOf("جمع کل خارج‌شده", db.totalOutCount().toString()))
                     fun colName(n: Int): String {
                         var x = n
                         var result = ""
@@ -572,16 +494,10 @@ class MainActivity : Activity() {
         var y = 42f
         canvas.drawText("گزارش موجودی انبار Scanner", 560f, y, paint); y += 28
         canvas.drawText("تاریخ تهیه: " + SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date()), 560f, y, paint); y += 30
-        canvas.drawText("— خلاصه موجودی —", 560f, y, paint); y += 22
         db.productSummary().forEach { (name, count) ->
-            canvas.drawText("$name : $count عدد موجود", 560f, y, paint); y += 20
+            canvas.drawText("$name : $count عدد موجود", 560f, y, paint); y += 22
         }
-        y += 8
-        canvas.drawText("— خلاصه خروجی —", 560f, y, paint); y += 22
-        db.productOutSummary().forEach { (name, count) ->
-            canvas.drawText("$name : $count عدد خارج‌شده", 560f, y, paint); y += 20
-        }
-        canvas.drawText("جمع کل خارج‌شده: ${db.totalOutCount()}", 560f, y, paint); y += 24
+        y += 10
         canvas.drawText("فهرست سریال‌ها (موجود و خارج‌شده)", 560f, y, paint); y += 24
         db.serialRows().forEach { row ->
             if (y > 800) {
