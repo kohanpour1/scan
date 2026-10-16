@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
@@ -12,7 +13,8 @@
             android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
             android:windowSoftInputMode="stateAlwaysHidden"
-            android:screenOrientation="fullSensor" />
+            android:screenOrientation="fullSensor"
+            tools:replace="android:screenOrientation" />
         <activity
             android:name="ir.keyhansaze.scanner.MainActivity"
             android:exported="true"
