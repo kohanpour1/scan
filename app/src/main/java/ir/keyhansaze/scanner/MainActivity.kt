@@ -463,7 +463,7 @@ class MainActivity : Activity() {
                         }
                         return result
                     }
-                    fun xmlEscape(s: String) = s.replace("&", "&").replace("<", "<").replace(">", ">").replace("\"", """).replace("'", "'")
+                    fun xmlEscape(s: String) = s.replace("&", "&" + "amp;").replace("<", "&" + "lt;").replace(">", "&" + "gt;").replace("\"", "&" + "quot;").replace("'", "&" + "apos;")
                     val sheet = StringBuilder("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>""")
                     table.forEachIndexed { ri, row ->
