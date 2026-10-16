@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
@@ -12,9 +11,7 @@
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             android:clearTaskOnLaunch="true"
             android:stateNotNeeded="true"
-            android:windowSoftInputMode="stateAlwaysHidden"
-            android:screenOrientation="fullSensor"
-            tools:replace="android:screenOrientation" />
+            android:windowSoftInputMode="stateAlwaysHidden" />
         <activity
             android:name="ir.keyhansaze.scanner.MainActivity"
             android:exported="true"
