@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "scan"
+rootProject.name = "Scanner"
 include(":app")
