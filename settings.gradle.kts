@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Scanner"
+rootProject.name = "AnbarPro"
 include(":app")

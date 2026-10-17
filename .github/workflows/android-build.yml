@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Scanner APK
+    name: Build Anbar Pro APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -36,7 +36,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Scanner-Android-APK
+          name: AnbarPro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
